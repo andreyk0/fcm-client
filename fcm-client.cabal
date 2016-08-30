@@ -1,0 +1,122 @@
+name:                fcm-client
+version:             0.1.0.0
+synopsis:            Initial project template from stack
+description:         Please see README.md
+homepage:            https://github.com/andreyk0/fcm-client#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Andrey Kartashov
+maintainer:          andrey.kartashov@gmail.com
+copyright:           2016 Andrey Kartashov
+category:            Library
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+
+library
+  hs-source-dirs:     src
+
+  exposed-modules:    FCMClient
+                    , FCMClient.JSON.Types
+                    , FCMClient.Types
+
+  build-depends:      base
+                    , aeson
+                    , aeson-casing
+                    , attoparsec
+                    , bytestring
+                    , conduit
+                    , containers
+                    , http-client
+                    , http-conduit
+                    , http-types
+                    , lens
+                    , monad-logger
+                    , scientific
+                    , semigroups
+                    , template-haskell
+                    , text
+                    , transformers
+
+  default-language:   Haskell2010
+
+  ghc-options:        -Wall -fwarn-tabs
+
+
+
+executable            fcm-client
+
+  hs-source-dirs:     cli
+
+  main-is:            Main.hs
+
+  default-language:   Haskell2010
+
+  build-depends:      base
+                    , aeson
+                    , aeson-casing
+                    , attoparsec
+                    , bytestring
+                    , conduit
+                    , containers
+                    , http-client
+                    , http-conduit
+                    , http-types
+                    , lens
+                    , monad-logger
+                    , scientific
+                    , optparse-applicative
+                    , semigroups
+                    , template-haskell
+                    , text
+                    , transformers
+
+  ghc-options:        -Wall -fwarn-tabs -threaded -O2
+
+
+
+test-suite test
+  type:               exitcode-stdio-1.0
+
+  hs-source-dirs:     test src
+
+  main-is:            Spec.hs
+
+  other-modules:      FCMClient.Types
+                    , FCMClient.JSON.Types
+
+  build-depends:      base
+                    , aeson
+                    , aeson-casing
+                    , attoparsec
+                    , bytestring
+                    , conduit
+                    , containers
+                    , http-client
+                    , http-conduit
+                    , http-types
+                    , lens
+                    , HUnit
+                    , monad-logger
+                    , scientific
+                    , optparse-applicative
+                    , QuickCheck
+                    , scientific
+                    , semigroups
+                    , template-haskell
+                    , test-framework
+                    , test-framework-hunit
+                    , test-framework-quickcheck2
+                    , text
+                    , transformers
+
+  default-language:   Haskell2010
+
+  ghc-options:        -Wall -fwarn-tabs -fno-warn-orphans -fno-warn-missing-signatures -threaded -O2
+
+
+
+source-repository head
+  type:     git
+  location: https://github.com/andreyk0/fcm-client
