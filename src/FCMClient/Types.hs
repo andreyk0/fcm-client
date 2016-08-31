@@ -43,6 +43,7 @@ module FCMClient.Types (
 , fcmDryRun
 , J.fcmData
 , J.fcmNotification
+, fcmWithNotification
 ) where
 
 
@@ -156,3 +157,12 @@ fcmDryRun :: (Applicative f, Functor f)
           -> J.FCMMessage -> f J.FCMMessage
 fcmDryRun = J.fcmDryRun . maybeBoolPr
 
+
+-- | Creates default empty notification if missing
+fcmWithNotification :: (Applicative f, Functor f)
+                    => (J.FCMNotification -> f J.FCMNotification)
+                    -> J.FCMMessage -> f J.FCMMessage
+fcmWithNotification = J.fcmNotification . justNotif
+  where justNotif f maybeN = case maybeN
+                               of Nothing -> fmap Just (f J.newFCMNotification)
+                                  Just n  -> fmap Just (f n)

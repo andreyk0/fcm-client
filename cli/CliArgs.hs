@@ -4,23 +4,26 @@
 
 module CliArgs (
   CliArgs(..)
+, CliCmd(..)
 , runWithArgs
 ) where
 
 
+import           Control.Lens
 import           Data.Monoid
+import qualified Data.Text as T
+import           FCMClient.Types
 import           Options.Applicative
 import           System.Environment
 
 
 data CliArgs = CliArgs { cliAuthKey:: String
                        , cliCmd:: CliCmd
-                       } deriving (Eq, Show)
+                       }
 
 
 data CliCmd = CliCmdSendJsonBatch (Maybe FilePath)
-            | CliCmdSendMessage
-            deriving (Eq, Show)
+            | CliCmdSendMessage (FCMMessage -> FCMMessage)
 
 
 parseArgs :: Maybe String -- ^ default auth key from shell env
@@ -34,13 +37,38 @@ parseArgs maybeAuthKey = CliArgs
                Just ak -> value ak
         )
      <> help "Auth key, defaults to FCM_AUTH_KEY environmental variable." )
-  <*> subparser ( command "message"
-                    (info (pure CliCmdSendMessage)
-                      (progDesc "Send test message."))
-               <> command "batch"
-                    (info (pure (CliCmdSendJsonBatch Nothing))
-                      (progDesc "Send message batch."))
+  <*> subparser ( command "message" (info (helper <*> parseCliCmdSendMessage)
+                                          (progDesc "Send test message."))
+
+               <> command "batch" (info  (helper <*> (pure (CliCmdSendJsonBatch Nothing)))
+                                         (progDesc "Send message batch."))
                 )
+
+parseCliCmdSendMessage :: Parser CliCmd
+parseCliCmdSendMessage = CliCmdSendMessage
+  <$> (    fmap ((set fcmTo) . Just . T.pack)
+                (strOption ( long "to"
+                          <> short 't'
+                          <> help "message to (reg token, notification key or topic)"))
+
+      <..> fmap ((set (fcmWithNotification . fcmTitle)) . Just . T.pack)
+                (strOption ( long "title"
+                          <> short 'T'
+                          <> help "notification title text"))
+
+      <..> fmap ((set (fcmWithNotification . fcmBody)) . Just . T.pack)
+                (strOption ( long "body"
+                          <> short 'b'
+                          <> help "notification body text"))
+      )
+
+
+-- | Chains lenses through Applicative
+(<..>) :: (Applicative f)
+       => f (b -> c)
+       -> f (a -> b)
+       -> f (a -> c)
+(<..>) bc ab = pure (.) <*> bc <*> ab
 
 
 runWithArgs:: (CliArgs -> IO ())

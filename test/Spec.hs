@@ -69,3 +69,12 @@ test_messageJSON = do
   (encode $ fcmContentAvailable .~ True $ newFCMMessage) @?= "{\"content_available\":true}"
 
   (toListOf fcmContentAvailable ((fromJust . decode) "{\"content_available\":true}")) @?= [True]
+
+  (encode $ newFCMMessage &
+           ( (fcmContentAvailable .~ True)
+           . ( fcmWithNotification %~ ( (fcmBody .~ Just "n body")
+                                      . (fcmTitle .~ Just "n title")
+                                      )
+             )
+           )
+    ) @?= "{\"content_available\":true,\"notification\":{\"title\":\"n title\",\"body\":\"n body\"}}"
