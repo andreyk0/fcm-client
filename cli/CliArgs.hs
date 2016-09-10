@@ -5,6 +5,7 @@
 module CliArgs (
   CliArgs(..)
 , CliCmd(..)
+, CliJsonBatchArgs(..)
 , runWithArgs
 ) where
 
@@ -25,8 +26,11 @@ data CliArgs = CliArgs { cliAuthKey:: String
                        , cliCmd:: CliCmd
                        }
 
+data CliJsonBatchArgs = CliJsonBatchArgs { cliBatchInput :: (Maybe FilePath)
+                                         , cliBatchOutput :: (Maybe FilePath)
+                                         }
 
-data CliCmd = CliCmdSendJsonBatch (Maybe FilePath)
+data CliCmd = CliCmdSendJsonBatch CliJsonBatchArgs
             | CliCmdSendMessage (FCMMessage -> FCMMessage)
 
 
@@ -44,9 +48,22 @@ parseArgs maybeAuthKey = CliArgs
   <*> subparser ( command "message" (info (helper <*> parseCliCmdSendMessage)
                                           (progDesc "Send test message."))
 
-               <> command "batch" (info  (helper <*> (pure (CliCmdSendJsonBatch Nothing)))
+               <> command "batch" (info  (helper <*> (CliCmdSendJsonBatch <$> parseCliJsonBatchArgs))
                                          (progDesc "Send message batch."))
                 )
+
+
+parseCliJsonBatchArgs :: Parser CliJsonBatchArgs
+parseCliJsonBatchArgs = CliJsonBatchArgs
+  <$> (optional $ strOption
+        ( long "input"
+       <> short 'i'
+       <> help "Batch input file, one JSON object per line (or STDIN)."))
+  <*> (optional $ strOption
+        ( long "output"
+       <> short 'o'
+       <> help "Batch input file (or STDOUT)."))
+
 
 parseCliCmdSendMessage :: Parser CliCmd
 parseCliCmdSendMessage = CliCmdSendMessage
