@@ -92,7 +92,7 @@ data FCMNotification =
 
     -- | color   Optional, string
     -- Android: Indicates color of the icon, expressed in #rrggbb format
-  , _fcmColor:: !(Maybe String)
+  , _fcmColor:: !(Maybe Text)
 
     -- | badge  Optional, string
     -- Indicates the badge on the client app home icon.
