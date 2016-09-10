@@ -27,12 +27,14 @@ library
                     , attoparsec
                     , bytestring
                     , conduit
+                    , conduit-extra
                     , containers
                     , http-client
                     , http-conduit
                     , http-types
                     , lens
                     , monad-logger
+                    , resourcet
                     , scientific
                     , semigroups
                     , template-haskell
@@ -61,6 +63,7 @@ executable            fcm-client
                     , attoparsec
                     , bytestring
                     , conduit
+                    , conduit-extra
                     , containers
                     , fcm-client
                     , http-client
@@ -68,6 +71,7 @@ executable            fcm-client
                     , http-types
                     , lens
                     , monad-logger
+                    , resourcet
                     , optparse-applicative
                     , scientific
                     , semigroups
@@ -96,6 +100,7 @@ test-suite test
                     , attoparsec
                     , bytestring
                     , conduit
+                    , conduit-extra
                     , containers
                     , http-client
                     , http-conduit
@@ -103,6 +108,7 @@ test-suite test
                     , lens
                     , HUnit
                     , monad-logger
+                    , resourcet
                     , scientific
                     , optparse-applicative
                     , QuickCheck
@@ -117,7 +123,7 @@ test-suite test
 
   default-language:   Haskell2010
 
-  ghc-options:        -Wall -fwarn-tabs -fno-warn-orphans -fno-warn-missing-signatures -threaded -O2
+  ghc-options:        -Wall -fwarn-tabs -fno-warn-orphans -fno-warn-missing-signatures
 
 
 
