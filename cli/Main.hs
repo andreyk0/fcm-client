@@ -18,7 +18,6 @@ import qualified Data.ByteString.UTF8 as UTF8
 import           Data.Conduit
 import qualified Data.Conduit.Binary as CB
 import qualified Data.Conduit.List as CL
-import           Data.Monoid
 import           FCMClient
 import           FCMClient.Types
 import           Network.HTTP.Client
@@ -56,13 +55,16 @@ main = runWithArgs $ \CliArgs{..} -> do
 -- an FCM request but original input will be propagated to the output, this allows for addition
 -- of request tracking/debugging fields that makes it easier to interpret results.
 parseInputConduit :: (MonadIO m, MonadResource m)
-                  => Conduit BS.ByteString m (Either String (Value, FCMMessage))
-parseInputConduit =
-  CB.lines =$= CL.map (eitherDecode' . LBS.fromStrict) =$=
-    ( CL.map $ \ejObj -> do jObj <- ejObj
-                            case fromJSON jObj
-                              of Success m -> Right (jObj, m)
-                                 Error e   -> Left e )
+                  => Conduit BS.ByteString m (Either (BS.ByteString, String) (Value, FCMMessage))
+parseInputConduit = CB.lines =$= CL.map (\line -> do
+  jObj <- case eitherDecode' $ LBS.fromStrict line
+            of Right v -> Right v
+               Left  e -> Left (line, e)
+  case fromJSON jObj
+    of Success m -> Right (jObj, m)
+       Error e   -> Left (line, e)
+  )
+
 
 encodeOutputConduit :: (MonadIO m, MonadResource m)
                     => Conduit Value m BS.ByteString
@@ -75,13 +77,14 @@ encodeOutputConduit =
 -- | Convert each input line into a JSON object containing original input and results of the call.
 callFCMConduit :: (MonadIO m, MonadResource m)
                => BS.ByteString -- ^ authorization key
-               -> Conduit (Either String (Value, FCMMessage)) m Value
+               -> Conduit (Either (BS.ByteString,String) (Value, FCMMessage)) m Value
 callFCMConduit authKey = CL.mapM $ \input ->
   case input
-    of Left e  -> return $ object [ ("type", "ParserError")
-                                  , ("error", toJSON e)
-                                  ]
-       Right m -> liftIO $ sendMessage m
+    of Left (i,e) -> return $ object [ ("type", "ParserError")
+                                     , ("error", toJSON e)
+                                     , ("input", toJSON (UTF8.toString i))
+                                     ]
+       Right m    -> liftIO $ sendMessage m
 
   where sendMessage :: (Value, FCMMessage) -> IO Value
         sendMessage (jm,m) = do
