@@ -1,23 +1,28 @@
-{-# LANGUAGE BangPatterns       #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RankNTypes         #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BangPatterns            #-}
+{-# LANGUAGE OverloadedStrings       #-}
+{-# LANGUAGE RankNTypes              #-}
+{-# LANGUAGE RecordWildCards         #-}
+{-# LANGUAGE ScopedTypeVariables     #-}
 
 
 module Main where
 
 
 import           CliArgs
+import qualified Control.Concurrent.Async as A
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
+import           Control.Retry
 import           Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import qualified Data.ByteString.UTF8 as UTF8
 import           Data.Conduit
+import           Data.Conduit.Async
 import qualified Data.Conduit.Binary as CB
 import qualified Data.Conduit.List as CL
+import           Data.Monoid
 import           FCMClient
 import           FCMClient.Types
 import           Network.HTTP.Client
@@ -36,15 +41,18 @@ main = runWithArgs $ \CliArgs{..} -> do
         putStrLn $ (LUTF8.toString . encode) (responseBody res)
 
       sendMessageBatch CliJsonBatchArgs{..} = do
-        batchInputConduit cliBatchInput
-          =$= parseInputConduit =$= callFCMConduit (UTF8.fromString cliAuthKey)
-          =$= encodeOutputConduit
-          $$ batchOutputConduit cliBatchOutput
+        let buf c = buffer' cliBatchConc c
+
+        (batchInputConduit cliBatchInput =$= parseInputConduit)
+          `buf`
+          (callFCMConduit (UTF8.fromString cliAuthKey) =$= runInParallel cliBatchConc)
+          `buf`
+          (encodeOutputConduit =$= batchOutputConduit cliBatchOutput)
 
 
   case cliCmd
     of CliCmdSendMessage msgMod -> sendMessage msgMod
-       CliCmdSendJsonBatch bargs -> runResourceT $ sendMessageBatch bargs
+       CliCmdSendJsonBatch bargs -> runResourceT $ runCConduit $ sendMessageBatch bargs
 
 
 
@@ -77,16 +85,21 @@ encodeOutputConduit =
 -- | Convert each input line into a JSON object containing original input and results of the call.
 callFCMConduit :: (MonadIO m, MonadResource m)
                => BS.ByteString -- ^ authorization key
-               -> Conduit (Either (BS.ByteString,String) (Value, FCMMessage)) m Value
-callFCMConduit authKey = CL.mapM $ \input ->
+               -> Conduit (Either (BS.ByteString,String) (Value, FCMMessage)) m (A.Async Value)
+callFCMConduit authKey = CL.mapM $ \input -> liftIO . A.async $
   case input
     of Left (i,e) -> return $ object [ ("type", "ParserError")
                                      , ("error", toJSON e)
                                      , ("input", toJSON (UTF8.toString i))
                                      ]
-       Right m    -> liftIO $ sendMessage m
+       Right m    -> recovering retPolicy [logRet] (const $ sendMessage m)
 
-  where sendMessage :: (Value, FCMMessage) -> IO Value
+  where retPolicy = constantDelay 1000000 <> limitRetries 5
+
+        logRet = logRetries (\ (_ :: HttpException) -> return True)
+                            (\ _ e _ -> liftIO $ hPutStrLn stderr $ "HTTP error: " <> (show e))
+
+        sendMessage :: (Value, FCMMessage) -> IO Value
         sendMessage (jm,m) = do
           res <- fcmCallJSON authKey m
 
@@ -99,6 +112,21 @@ callFCMConduit authKey = CL.mapM $ \input ->
                    then mkRes "Success"
                    else mkRes "ServerError"
 
+
+
+runInParallel :: (MonadIO m)
+              => Int -- ^ level
+              -> Conduit (A.Async a) m a
+runInParallel n = parC []
+  where parC !xs = do
+          let moreCnt = n - (length xs)
+          moreXs <- CL.take moreCnt
+          let xs' = xs ++ moreXs
+          if null xs'
+          then return ()
+          else do (a,res) <- liftIO $ A.waitAny xs'
+                  yield res
+                  parC $ filter (/= a) xs'
 
 
 

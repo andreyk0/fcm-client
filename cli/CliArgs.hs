@@ -28,6 +28,7 @@ data CliArgs = CliArgs { cliAuthKey:: String
 
 data CliJsonBatchArgs = CliJsonBatchArgs { cliBatchInput :: (Maybe FilePath)
                                          , cliBatchOutput :: (Maybe FilePath)
+                                         , cliBatchConc :: Int
                                          }
 
 data CliCmd = CliCmdSendJsonBatch CliJsonBatchArgs
@@ -63,6 +64,12 @@ parseCliJsonBatchArgs = CliJsonBatchArgs
         ( long "output"
        <> short 'o'
        <> help "Batch input file (or STDOUT)."))
+  <*> (option (auto >>= (\c -> if (c < 1) then error "Concurrency must be >= 1" else return c))
+        ( long "concurrency"
+       <> short 'c'
+       <> value 1
+       <> showDefaultWith show
+       <> help "How many HTTP requests to run in concurrently."))
 
 
 parseCliCmdSendMessage :: Parser CliCmd

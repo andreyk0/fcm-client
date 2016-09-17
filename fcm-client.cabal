@@ -24,6 +24,7 @@ library
   build-depends:      base
                     , aeson
                     , aeson-casing
+                    , async
                     , attoparsec
                     , bytestring
                     , conduit
@@ -33,13 +34,18 @@ library
                     , http-conduit
                     , http-types
                     , lens
+                    , lifted-async
+                    , monad-control
                     , monad-logger
                     , resourcet
+                    , retry
                     , scientific
                     , semigroups
+                    , stm-conduit
                     , template-haskell
                     , text
                     , transformers
+                    , transformers-base
 
   default-language:   Haskell2010
 
@@ -60,6 +66,7 @@ executable            fcm-client
   build-depends:      base
                     , aeson
                     , aeson-casing
+                    , async
                     , attoparsec
                     , bytestring
                     , conduit
@@ -70,14 +77,19 @@ executable            fcm-client
                     , http-conduit
                     , http-types
                     , lens
+                    , lifted-async
+                    , monad-control
                     , monad-logger
                     , resourcet
+                    , retry
                     , optparse-applicative
                     , scientific
                     , semigroups
+                    , stm-conduit
                     , template-haskell
                     , text
                     , transformers
+                    , transformers-base
                     , utf8-string
 
   ghc-options:        -Wall -fwarn-tabs -threaded -O2
@@ -97,6 +109,7 @@ test-suite test
   build-depends:      base
                     , aeson
                     , aeson-casing
+                    , async
                     , attoparsec
                     , bytestring
                     , conduit
@@ -106,20 +119,25 @@ test-suite test
                     , http-conduit
                     , http-types
                     , lens
+                    , lifted-async
                     , HUnit
+                    , monad-control
                     , monad-logger
                     , resourcet
+                    , retry
                     , scientific
                     , optparse-applicative
                     , QuickCheck
                     , scientific
                     , semigroups
+                    , stm-conduit
                     , template-haskell
                     , test-framework
                     , test-framework-hunit
                     , test-framework-quickcheck2
                     , text
                     , transformers
+                    , transformers-base
 
   default-language:   Haskell2010
 
