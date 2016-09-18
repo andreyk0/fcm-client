@@ -62,7 +62,7 @@ main = runWithArgs $ \CliArgs{..} -> do
 -- Input can contain JSON fields that are not FCM-related, they'll be stripped out when we make
 -- an FCM request but original input will be propagated to the output, this allows for addition
 -- of request tracking/debugging fields that makes it easier to interpret results.
-parseInputConduit :: (MonadIO m, MonadResource m)
+parseInputConduit :: (MonadIO m)
                   => Conduit BS.ByteString m (Either (BS.ByteString, String) (Value, FCMMessage))
 parseInputConduit = CB.lines =$= CL.map (\line -> do
   jObj <- case eitherDecode' $ LBS.fromStrict line
@@ -74,7 +74,7 @@ parseInputConduit = CB.lines =$= CL.map (\line -> do
   )
 
 
-encodeOutputConduit :: (MonadIO m, MonadResource m)
+encodeOutputConduit :: (MonadIO m)
                     => Conduit Value m BS.ByteString
 encodeOutputConduit =
   CL.map (LBS.toStrict . encode)
@@ -130,7 +130,7 @@ runInParallel n = parC []
 
 
 
-batchInputConduit :: (MonadIO m, MonadResource m)
+batchInputConduit :: (MonadResource m)
                   => Maybe FilePath
                   -> Producer m BS.ByteString
 batchInputConduit (Just fp) = CB.sourceFile fp
@@ -140,7 +140,7 @@ batchInputConduit Nothing = do
   CB.sourceHandle stdin
 
 
-batchOutputConduit :: (MonadIO m, MonadResource m)
+batchOutputConduit :: (MonadResource m)
                   => Maybe FilePath
                   -> Consumer BS.ByteString m ()
 batchOutputConduit (Just fp) = CB.sinkFile fp

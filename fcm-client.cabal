@@ -24,28 +24,14 @@ library
   build-depends:      base
                     , aeson
                     , aeson-casing
-                    , async
-                    , attoparsec
                     , bytestring
-                    , conduit
-                    , conduit-extra
                     , containers
                     , http-client
                     , http-conduit
                     , http-types
                     , lens
-                    , lifted-async
-                    , monad-control
-                    , monad-logger
-                    , resourcet
-                    , retry
                     , scientific
-                    , semigroups
-                    , stm-conduit
-                    , template-haskell
                     , text
-                    , transformers
-                    , transformers-base
 
   default-language:   Haskell2010
 
@@ -65,31 +51,19 @@ executable            fcm-client
 
   build-depends:      base
                     , aeson
-                    , aeson-casing
                     , async
-                    , attoparsec
                     , bytestring
                     , conduit
                     , conduit-extra
-                    , containers
                     , fcm-client
                     , http-client
-                    , http-conduit
                     , http-types
                     , lens
-                    , lifted-async
-                    , monad-control
-                    , monad-logger
                     , resourcet
                     , retry
                     , optparse-applicative
-                    , scientific
-                    , semigroups
                     , stm-conduit
-                    , template-haskell
                     , text
-                    , transformers
-                    , transformers-base
                     , utf8-string
 
   ghc-options:        -Wall -fwarn-tabs -threaded -O2
@@ -99,45 +73,21 @@ executable            fcm-client
 test-suite test
   type:               exitcode-stdio-1.0
 
-  hs-source-dirs:     test src
+  hs-source-dirs:     test
 
   main-is:            Spec.hs
 
-  other-modules:      FCMClient.Types
-                    , FCMClient.JSON.Types
-
   build-depends:      base
                     , aeson
-                    , aeson-casing
-                    , async
-                    , attoparsec
-                    , bytestring
-                    , conduit
-                    , conduit-extra
                     , containers
-                    , http-client
-                    , http-conduit
-                    , http-types
-                    , lens
-                    , lifted-async
+                    , fcm-client
                     , HUnit
-                    , monad-control
-                    , monad-logger
-                    , resourcet
-                    , retry
-                    , scientific
-                    , optparse-applicative
+                    , lens
                     , QuickCheck
-                    , scientific
-                    , semigroups
-                    , stm-conduit
-                    , template-haskell
                     , test-framework
                     , test-framework-hunit
                     , test-framework-quickcheck2
                     , text
-                    , transformers
-                    , transformers-base
 
   default-language:   Haskell2010
 

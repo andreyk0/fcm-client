@@ -104,7 +104,7 @@ aesonTxtPr =
 
 
 -- | Typed lens focused on localized notification body arguments.
-fcmBodyLocArgs :: (Applicative f, Functor f)
+fcmBodyLocArgs :: (Applicative f)
                => ([FCMLocValue] -> f [FCMLocValue])
                -> J.FCMNotification -> f J.FCMNotification
 fcmBodyLocArgs = J.fcmBodyLocArgs . aesonTxtPr
@@ -112,7 +112,7 @@ fcmBodyLocArgs = J.fcmBodyLocArgs . aesonTxtPr
 
 
 -- | Typed lens focused on localized notification title arguments.
-fcmTitleLocArgs :: (Applicative f, Functor f)
+fcmTitleLocArgs :: (Applicative f)
                 => ([FCMLocValue] -> f [FCMLocValue])
                 -> J.FCMNotification -> f J.FCMNotification
 fcmTitleLocArgs = J.fcmTitleLocArgs . aesonTxtPr
@@ -120,7 +120,7 @@ fcmTitleLocArgs = J.fcmTitleLocArgs . aesonTxtPr
 
 
 -- | Typed lens focused on message priority.
-fcmPriority :: (Applicative f, Functor f)
+fcmPriority :: (Applicative f)
             => (FCMPriority -> f FCMPriority)
             -> J.FCMMessage -> f J.FCMMessage
 fcmPriority = J.fcmPriority . (prism' fcmPriorityToText (Just .textToFcmPriority))
@@ -131,35 +131,35 @@ fcmPriority = J.fcmPriority . (prism' fcmPriorityToText (Just .textToFcmPriority
 
 
 
-maybeBoolPr :: (Applicative f, Functor f)
+maybeBoolPr :: (Applicative f)
             => (Bool -> f Bool)
             -> (Maybe Bool) -> f (Maybe Bool)
 maybeBoolPr = prism' (\x -> if x then Just x else Nothing) (Just . fromMaybe False)
 
 
 -- | Sets content available field when True, sets Nothing when False.
-fcmContentAvailable :: (Applicative f, Functor f)
+fcmContentAvailable :: (Applicative f)
                     => (Bool -> f Bool)
                     -> J.FCMMessage -> f J.FCMMessage
 fcmContentAvailable = J.fcmContentAvailable . maybeBoolPr
 
 
 -- | Sets delay while idle field when True, sets Nothing when False.
-fcmDelayWhileIdle :: (Applicative f, Functor f)
+fcmDelayWhileIdle :: (Applicative f)
                   => (Bool -> f Bool)
                   -> J.FCMMessage -> f J.FCMMessage
 fcmDelayWhileIdle = J.fcmDelayWhileIdle . maybeBoolPr
 
 
 -- | Sets dry run field when True, sets Nothing when False.
-fcmDryRun :: (Applicative f, Functor f)
+fcmDryRun :: (Applicative f)
           => (Bool -> f Bool)
           -> J.FCMMessage -> f J.FCMMessage
 fcmDryRun = J.fcmDryRun . maybeBoolPr
 
 
 -- | Creates default empty notification if missing
-fcmWithNotification :: (Applicative f, Functor f)
+fcmWithNotification :: (Applicative f)
                     => (J.FCMNotification -> f J.FCMNotification)
                     -> J.FCMMessage -> f J.FCMMessage
 fcmWithNotification = J.fcmNotification . justNotif
