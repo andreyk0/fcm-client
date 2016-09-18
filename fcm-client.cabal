@@ -21,7 +21,7 @@ library
                     , FCMClient.JSON.Types
                     , FCMClient.Types
 
-  build-depends:      base
+  build-depends:      base >= 4.9 && < 5.0
                     , aeson
                     , aeson-casing
                     , bytestring
@@ -49,7 +49,7 @@ executable            fcm-client
 
   default-language:   Haskell2010
 
-  build-depends:      base
+  build-depends:      base >= 4.9 && < 5.0
                     , aeson
                     , async
                     , bytestring
@@ -77,7 +77,7 @@ test-suite test
 
   main-is:            Spec.hs
 
-  build-depends:      base
+  build-depends:      base >= 4.9 && < 5.0
                     , aeson
                     , containers
                     , fcm-client
