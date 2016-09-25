@@ -14,7 +14,6 @@
 module FCMClient.JSON.Types (
   FCMData
 , FCMNotification
-, newFCMNotification
 , fcmTitle
 , fcmBody
 , fcmIcon
@@ -28,7 +27,6 @@ module FCMClient.JSON.Types (
 , fcmTitleLocKey
 , fcmTitleLocArgs
 , FCMMessage
-, newFCMMessage
 , fcmTo
 , fcmRegistrationIDs
 , fcmCondition
@@ -45,12 +43,15 @@ module FCMClient.JSON.Types (
              , FCMResponseInvalidJSON
              , FCMResponseInvalidAuth
              , FCMResponseServerError )
+, _FCMResponseOk
+, _FCMResponseInvalidJSON
+, _FCMResponseInvalidAuth
+, _FCMResponseServerError
 , fcmResponseBody
 , fcmResponseErrorMessage
 , fcmResponseRetryAfter
 , FCMResponseBody(..)
-, FCMMessageResponseBody
-, _FCMResponseBody
+, FCMMessageResponse
 , _FCMMessageResponse
 , _FCMTopicResponse
 , fcmCanonicalIds
@@ -59,12 +60,16 @@ module FCMClient.JSON.Types (
 , fcmResults
 , fcmSuccess
 , FCMMessageResponseResult(..)
-, _FCMMessageResponseResult
 , _FCMMessageResponseResultOk
 , _FCMMessageResponseResultError
-, FCMMessageResponseResultOkBody
+, FCMMessageResponseResultOk
 , fcmMessageId
 , fcmRegistrationId
+, FCMTopicResponse(..)
+, FCMTopicResponseOk
+, _FCMTopicResponseOk
+, _FCMTopicResponseError
+, fcmTopicMessageId
 , FCMError(..)
 ) where
 
@@ -75,6 +80,7 @@ import           Data.Aeson
 import           Data.Aeson.Casing
 import           Data.Aeson.TH
 import           Data.Aeson.Types
+import           Data.Default.Class
 import           Data.List.NonEmpty (NonEmpty)
 import           Data.Map (Map)
 import           Data.Text (Text)
@@ -172,9 +178,8 @@ $(makeLenses ''FCMNotification)
 $(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMNotification)
 
 
-
-newFCMNotification :: FCMNotification
-newFCMNotification = FCMNotification Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+instance Default FCMNotification where
+  def = FCMNotification Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 
 -- | FCM Message as defined in https://firebase.google.com/docs/cloud-messaging/http-server-ref#send-downstream
@@ -286,8 +291,8 @@ $(makeLenses ''FCMMessage)
 $(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMMessage)
 
 
-newFCMMessage :: FCMMessage
-newFCMMessage = FCMMessage Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+instance Default FCMMessage where
+  def = FCMMessage Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 
 -- | String specifying the error that occurred when processing the message
@@ -347,8 +352,8 @@ instance FromJSON FCMError where
 
 
 
-data FCMMessageResponseResultOkBody =
-  FCMMessageResponseResultOkBody {
+data FCMMessageResponseResultOk =
+  FCMMessageResponseResultOkPayload {
     -- | String specifying a unique ID for each successfully processed message.
     _fcmMessageId :: !Text
 
@@ -359,16 +364,18 @@ data FCMMessageResponseResultOkBody =
   , _fcmRegistrationId :: !(Maybe Text)
   } deriving (Eq, Show)
 
-$(makeLenses ''FCMMessageResponseResultOkBody)
-$(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMMessageResponseResultOkBody)
+$(makeLenses ''FCMMessageResponseResultOk)
+$(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMMessageResponseResultOk)
 
+instance Default FCMMessageResponseResultOk where
+  def = FCMMessageResponseResultOkPayload "" Nothing
 
 data FCMMessageResponseResult =
-    FCMMessageResponseResultOk !FCMMessageResponseResultOkBody
+    FCMMessageResponseResultOk !FCMMessageResponseResultOk
   | FCMMessageResponseResultError !FCMError
   deriving (Eq, Show)
 
-$(makeClassyPrisms ''FCMMessageResponseResult)
+$(makePrisms ''FCMMessageResponseResult)
 
 instance ToJSON FCMMessageResponseResult where
   toJSON (FCMMessageResponseResultOk    b) = toJSON b
@@ -381,8 +388,8 @@ instance FromJSON FCMMessageResponseResult where
              <|> (FCMMessageResponseResultError <$> parseJSON o)
 
 
-data FCMMessageResponseBody =
-  FCMMessageResponseBody {
+data FCMMessageResponse =
+  FCMMessageResponsePayload {
     -- | Required, number  Unique ID (number) identifying the multicast message.
     _fcmMulticastId :: !Integer
 
@@ -404,15 +411,51 @@ data FCMMessageResponseBody =
   , _fcmResults :: !(Maybe (NonEmpty FCMMessageResponseResult))
   } deriving (Eq, Show)
 
-$(makeLenses ''FCMMessageResponseBody)
-$(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMMessageResponseBody)
+$(makeLenses ''FCMMessageResponse)
+$(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMMessageResponse)
+
+instance Default FCMMessageResponse where
+  def = FCMMessageResponsePayload 0 0 0 0 Nothing
+
+data FCMTopicResponseOk =
+  FCMTopicResponseOkPayload {
+    -- | Optional, number  The topic message ID when FCM has successfully
+    -- received the request and will attempt to deliver to all subscribed
+    -- devices.
+    _fcmTopicMessageId :: !Integer
+  } deriving (Eq, Show)
+
+$(makeLenses ''FCMTopicResponseOk )
+$(deriveJSON (aesonDrop 9 snakeCase) { omitNothingFields = True } ''FCMTopicResponseOk)
+
+instance Default FCMTopicResponseOk where
+  def = FCMTopicResponseOkPayload 0
+
+data FCMTopicResponse =
+    FCMTopicResponseOk !FCMTopicResponseOk
+  | FCMTopicResponseError !FCMError
+  deriving (Eq, Show)
+
+$(makePrisms ''FCMTopicResponse)
 
 
-data FCMResponseBody = FCMMessageResponse !FCMMessageResponseBody
-                     | FCMTopicResponse !FCMMessageResponseResult
+instance ToJSON FCMTopicResponse where
+  toJSON (FCMTopicResponseOk    o) = toJSON o
+  toJSON (FCMTopicResponseError e) = toJSON e
+
+  toEncoding (FCMTopicResponseOk    o) = toEncoding o
+  toEncoding (FCMTopicResponseError e) = toEncoding e
+
+instance FromJSON FCMTopicResponse where
+  parseJSON o =  (FCMTopicResponseOk <$> parseJSON o)
+             <|> (FCMTopicResponseError <$> parseJSON o)
+
+
+data FCMResponseBody = FCMMessageResponse !FCMMessageResponse
+                     | FCMTopicResponse !FCMTopicResponse
                      deriving (Eq, Show)
 
-$(makeClassyPrisms ''FCMResponseBody)
+$(makePrisms ''FCMResponseBody)
 
 instance ToJSON FCMResponseBody where
   toJSON (FCMMessageResponse m) = toJSON m
@@ -422,20 +465,26 @@ instance ToJSON FCMResponseBody where
   toEncoding (FCMTopicResponse t) = toEncoding t
 
 instance FromJSON FCMResponseBody where
-  parseJSON o =  (FCMTopicResponse <$> parseJSON o)
-             <|> (FCMMessageResponse <$> parseJSON o)
+  parseJSON o =  (FCMMessageResponse <$> parseJSON o)
+             <|> (FCMTopicResponse <$> parseJSON o)
 
 
 data FCMResponse = FCMResponseOk          { _fcmResponseBody :: !FCMResponseBody
-                                          , _fcmResponseRetryAfter :: !(Maybe UTCTime) -- ^ response and value of the Retry-After header
+
+                                            -- | value of the Retry-After header
+                                            -- could be set if some of the messages exceeded rate
+                                          , _fcmResponseRetryAfter :: !(Maybe UTCTime)
                                           }
                  | FCMResponseInvalidJSON { _fcmResponseErrorMessage :: !Text
                                           }
                  | FCMResponseInvalidAuth { _fcmResponseErrorMessage :: !Text
                                           }
                  | FCMResponseServerError { _fcmResponseErrorMessage :: !Text
-                                          , _fcmResponseRetryAfter :: !(Maybe UTCTime) -- ^ response and value of the Retry-After header
+                                            -- | value of the Retry-After header
+                                            -- could be set if topic or some of the messages exceeded rate
+                                          , _fcmResponseRetryAfter :: !(Maybe UTCTime)
                                           }
                  deriving (Eq, Show)
 
 $(makeLenses ''FCMResponse)
+$(makePrisms ''FCMResponse)

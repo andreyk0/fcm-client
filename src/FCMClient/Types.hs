@@ -16,7 +16,6 @@ module FCMClient.Types (
 , FCMPriority(..)
 , FCMLocValue(..)
 , J.FCMNotification
-, J.newFCMNotification
 , J.fcmTitle
 , J.fcmBody
 , J.fcmIcon
@@ -30,7 +29,6 @@ module FCMClient.Types (
 , J.fcmTitleLocKey
 , fcmTitleLocArgs
 , J.FCMMessage
-, J.newFCMMessage
 , J.fcmTo
 , J.fcmRegistrationIDs
 , J.fcmCondition
@@ -44,12 +42,46 @@ module FCMClient.Types (
 , J.fcmData
 , J.fcmNotification
 , fcmWithNotification
+
+, J.FCMResponse( J.FCMResponseOk
+               , J.FCMResponseInvalidJSON
+               , J.FCMResponseInvalidAuth
+               , J.FCMResponseServerError )
+, J._FCMResponseOk
+, J._FCMResponseInvalidJSON
+, J._FCMResponseInvalidAuth
+, J._FCMResponseServerError
+, J.fcmResponseBody
+, J.fcmResponseErrorMessage
+, J.fcmResponseRetryAfter
+, J.FCMResponseBody(..)
+, J.FCMMessageResponse
+, J._FCMMessageResponse
+, J._FCMTopicResponse
+, J.fcmCanonicalIds
+, J.fcmFailure
+, J.fcmMulticastId
+, J.fcmResults
+, J.fcmSuccess
+, J.FCMMessageResponseResult(..)
+, J._FCMMessageResponseResultOk
+, J._FCMMessageResponseResultError
+, J.FCMMessageResponseResultOk
+, J.fcmMessageId
+, J.fcmRegistrationId
+, J.FCMTopicResponse(..)
+, J.FCMTopicResponseOk
+, J._FCMTopicResponseOk
+, J._FCMTopicResponseError
+, J.fcmTopicMessageId
+, J.FCMError(..)
 ) where
 
 
 import           Control.Lens
 import           Data.Aeson
 import           Data.Aeson.Types as J
+import           Data.Default.Class
 import           Data.List.NonEmpty (nonEmpty)
 import           Data.Maybe
 import           Data.Scientific (Scientific)
@@ -164,5 +196,5 @@ fcmWithNotification :: (Applicative f)
                     -> J.FCMMessage -> f J.FCMMessage
 fcmWithNotification = J.fcmNotification . justNotif
   where justNotif f maybeN = case maybeN
-                               of Nothing -> fmap Just (f J.newFCMNotification)
+                               of Nothing -> fmap Just (f def)
                                   Just n  -> fmap Just (f n)

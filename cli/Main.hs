@@ -22,6 +22,7 @@ import           Data.Conduit
 import           Data.Conduit.Async
 import qualified Data.Conduit.Binary as CB
 import qualified Data.Conduit.List as CL
+import           Data.Default.Class
 import           Data.Monoid
 import           FCMClient
 import           FCMClient.Types
@@ -34,7 +35,7 @@ main :: IO ()
 main = runWithArgs $ \CliArgs{..} -> do
 
   let sendMessage msgMod = do
-        let msg = msgMod newFCMMessage
+        let msg = msgMod def
         putStrLn $ (LUTF8.toString . encode) msg
         res <- fcmCallJSON (UTF8.fromString cliAuthKey) msg :: IO (Response Object)
         putStrLn $ show res

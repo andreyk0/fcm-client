@@ -26,6 +26,7 @@ library
                     , aeson-casing
                     , bytestring
                     , containers
+                    , data-default-class
                     , http-client
                     , http-conduit
                     , http-types
@@ -53,6 +54,7 @@ executable            fcm-client
   build-depends:      base >= 4.9 && < 5.0
                     , aeson
                     , async
+                    , data-default-class
                     , bytestring
                     , conduit
                     , conduit-extra
@@ -81,6 +83,7 @@ test-suite test
   build-depends:      base >= 4.9 && < 5.0
                     , aeson
                     , containers
+                    , data-default-class
                     , fcm-client
                     , HUnit
                     , lens
