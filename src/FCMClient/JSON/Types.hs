@@ -8,7 +8,7 @@
 -- | Google Firebase Cloud Messaging model / JSON conversions.
 --   https://firebase.google.com/docs/cloud-messaging/http-server-ref
 --
---   Date types in this module map field for field in the google docs.
+--   Data types in this module map field for field in the google docs.
 --   See FCMClient.Types module for some wrapper functions on top of raw JSON types.
 --
 module FCMClient.JSON.Types (
@@ -41,15 +41,44 @@ module FCMClient.JSON.Types (
 , fcmDryRun
 , fcmData
 , fcmNotification
+, FCMResponse( FCMResponseOk
+             , FCMResponseInvalidJSON
+             , FCMResponseInvalidAuth
+             , FCMResponseServerError )
+, fcmResponseBody
+, fcmResponseErrorMessage
+, fcmResponseRetryAfter
+, FCMResponseBody(..)
+, FCMMessageResponseBody
+, _FCMResponseBody
+, _FCMMessageResponse
+, _FCMTopicResponse
+, fcmCanonicalIds
+, fcmFailure
+, fcmMulticastId
+, fcmResults
+, fcmSuccess
+, FCMMessageResponseResult(..)
+, _FCMMessageResponseResult
+, _FCMMessageResponseResultOk
+, _FCMMessageResponseResultError
+, FCMMessageResponseResultOkBody
+, fcmMessageId
+, fcmRegistrationId
+, FCMError(..)
 ) where
 
 
+import           Control.Applicative
 import           Control.Lens.TH
+import           Data.Aeson
 import           Data.Aeson.Casing
 import           Data.Aeson.TH
+import           Data.Aeson.Types
 import           Data.List.NonEmpty (NonEmpty)
 import           Data.Map (Map)
 import           Data.Text (Text)
+import           Data.Time.Clock
 
 
 type FCMData = Map Text Text
@@ -259,3 +288,154 @@ $(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMMessage)
 
 newFCMMessage :: FCMMessage
 newFCMMessage = FCMMessage Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
+
+-- | String specifying the error that occurred when processing the message
+-- for the recipient. The possible values can be found in table 9.
+-- https://firebase.google.com/docs/cloud-messaging/http-server-ref#table9
+data FCMError =
+    FCMErrorDeviceMessageRate
+  | FCMErrorInternalServerError
+  | FCMErrorInvalidDataKey
+  | FCMErrorInvalidPackageName
+  | FCMErrorInvalidRegistration
+  | FCMErrorInvalidTtl
+  | FCMErrorMessageTooBig
+  | FCMErrorMismatchSenderId
+  | FCMErrorMissingRegistration
+  | FCMErrorNotRegistered
+  | FCMErrorTopicsMessageRate
+  | FCMErrorUnavailable
+  | FCMErrorOther Text -- ^ used if we can't parse any of the above
+  deriving (Eq, Show)
+
+instance ToJSON FCMError where
+  toJSON FCMErrorDeviceMessageRate   = object [ ("error", "DeviceMessageRate") ]
+  toJSON FCMErrorInternalServerError = object [ ("error", "InternalServerError") ]
+  toJSON FCMErrorInvalidDataKey      = object [ ("error", "InvalidDataKey") ]
+  toJSON FCMErrorInvalidPackageName  = object [ ("error", "InvalidPackageName") ]
+  toJSON FCMErrorInvalidRegistration = object [ ("error", "InvalidRegistration") ]
+  toJSON FCMErrorInvalidTtl          = object [ ("error", "InvalidTtl") ]
+  toJSON FCMErrorMessageTooBig       = object [ ("error", "MessageTooBig") ]
+  toJSON FCMErrorMismatchSenderId    = object [ ("error", "MismatchSenderId") ]
+  toJSON FCMErrorMissingRegistration = object [ ("error", "MissingRegistration") ]
+  toJSON FCMErrorNotRegistered       = object [ ("error", "NotRegistered") ]
+  toJSON FCMErrorTopicsMessageRate   = object [ ("error", "TopicsMessageRate") ]
+  toJSON FCMErrorUnavailable         = object [ ("error", "Unavailable") ]
+  toJSON (FCMErrorOther e)           = object [ ("error", toJSON e) ]
+
+
+instance FromJSON FCMError where
+  parseJSON (Object v) = fmap ( \(n :: Text) ->
+                                case n
+                                  of "DeviceMessageRate"   -> FCMErrorDeviceMessageRate
+                                     "InternalServerError" -> FCMErrorInternalServerError
+                                     "InvalidDataKey"      -> FCMErrorInvalidDataKey
+                                     "InvalidPackageName"  -> FCMErrorInvalidPackageName
+                                     "InvalidRegistration" -> FCMErrorInvalidRegistration
+                                     "InvalidTtl"          -> FCMErrorInvalidTtl
+                                     "MessageTooBig"       -> FCMErrorMessageTooBig
+                                     "MismatchSenderId"    -> FCMErrorMismatchSenderId
+                                     "MissingRegistration" -> FCMErrorMissingRegistration
+                                     "NotRegistered"       -> FCMErrorNotRegistered
+                                     "TopicsMessageRate"   -> FCMErrorTopicsMessageRate
+                                     "Unavailable"         -> FCMErrorUnavailable
+                                     e                     -> FCMErrorOther e
+                              ) (v .: "error")
+
+  parseJSON x = typeMismatch "Object" x
+
+
+
+data FCMMessageResponseResultOkBody =
+  FCMMessageResponseResultOkBody {
+    -- | String specifying a unique ID for each successfully processed message.
+    _fcmMessageId :: !Text
+
+    -- | Optional string specifying the canonical registration token for the
+    -- client app that the message was processed and sent to. Sender should use
+    -- this value as the registration token for future requests. Otherwise, the
+    -- messages might be rejected.
+  , _fcmRegistrationId :: !(Maybe Text)
+  } deriving (Eq, Show)
+
+$(makeLenses ''FCMMessageResponseResultOkBody)
+$(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMMessageResponseResultOkBody)
+
+
+data FCMMessageResponseResult =
+    FCMMessageResponseResultOk !FCMMessageResponseResultOkBody
+  | FCMMessageResponseResultError !FCMError
+  deriving (Eq, Show)
+
+$(makeClassyPrisms ''FCMMessageResponseResult)
+
+instance ToJSON FCMMessageResponseResult where
+  toJSON (FCMMessageResponseResultOk    b) = toJSON b
+  toJSON (FCMMessageResponseResultError e) = toJSON e
+  toEncoding (FCMMessageResponseResultOk    b) = toEncoding b
+  toEncoding (FCMMessageResponseResultError e) = toEncoding e
+
+instance FromJSON FCMMessageResponseResult where
+  parseJSON o =  (FCMMessageResponseResultOk <$> parseJSON o)
+             <|> (FCMMessageResponseResultError <$> parseJSON o)
+
+
+data FCMMessageResponseBody =
+  FCMMessageResponseBody {
+    -- | Required, number  Unique ID (number) identifying the multicast message.
+    _fcmMulticastId :: !Integer
+
+    -- | Required, number  Number of messages that were processed without an error.
+  , _fcmSuccess :: !Integer
+
+    -- | Required, number  Number of messages that could not be processed.
+  , _fcmFailure :: !Integer
+
+    -- | Required, number  Number of results that contain a canonical
+    -- registration token. See the registration overview for more discussion of
+    -- this topic.
+  , _fcmCanonicalIds :: !Integer
+
+    -- | Optional, array object  Array of objects representing the status of
+    -- the messages processed. The objects are listed in the same order as the
+    -- request (i.e., for each registration ID in the request, its result is
+    -- listed in the same index in the response).
+  , _fcmResults :: !(Maybe (NonEmpty FCMMessageResponseResult))
+  } deriving (Eq, Show)
+
+$(makeLenses ''FCMMessageResponseBody)
+$(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMMessageResponseBody)
+
+
+data FCMResponseBody = FCMMessageResponse !FCMMessageResponseBody
+                     | FCMTopicResponse !FCMMessageResponseResult
+                     deriving (Eq, Show)
+
+$(makeClassyPrisms ''FCMResponseBody)
+
+instance ToJSON FCMResponseBody where
+  toJSON (FCMMessageResponse m) = toJSON m
+  toJSON (FCMTopicResponse t) = toJSON t
+
+  toEncoding (FCMMessageResponse m) = toEncoding m
+  toEncoding (FCMTopicResponse t) = toEncoding t
+
+instance FromJSON FCMResponseBody where
+  parseJSON o =  (FCMTopicResponse <$> parseJSON o)
+             <|> (FCMMessageResponse <$> parseJSON o)
+
+
+data FCMResponse = FCMResponseOk          { _fcmResponseBody :: !FCMResponseBody
+                                          , _fcmResponseRetryAfter :: !(Maybe UTCTime) -- ^ response and value of the Retry-After header
+                                          }
+                 | FCMResponseInvalidJSON { _fcmResponseErrorMessage :: !Text
+                                          }
+                 | FCMResponseInvalidAuth { _fcmResponseErrorMessage :: !Text
+                                          }
+                 | FCMResponseServerError { _fcmResponseErrorMessage :: !Text
+                                          , _fcmResponseRetryAfter :: !(Maybe UTCTime) -- ^ response and value of the Retry-After header
+                                          }
+                 deriving (Eq, Show)
+
+$(makeLenses ''FCMResponse)
