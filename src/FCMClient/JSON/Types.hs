@@ -39,17 +39,24 @@ module FCMClient.JSON.Types (
 , fcmDryRun
 , fcmData
 , fcmNotification
-, FCMResponse( FCMResponseOk
-             , FCMResponseInvalidJSON
-             , FCMResponseInvalidAuth
-             , FCMResponseServerError )
-, _FCMResponseOk
-, _FCMResponseInvalidJSON
-, _FCMResponseInvalidAuth
-, _FCMResponseServerError
-, fcmResponseBody
-, fcmResponseErrorMessage
-, fcmResponseRetryAfter
+, FCMResult ( FCMResultSuccess
+            , FCMResultError
+            )
+, _FCMResultSuccess
+, _FCMResultError
+, FCMClientError ( FCMErrorResponseInvalidJSON
+                 , FCMErrorResponseInvalidAuth
+                 , FCMServerError
+                 , FCMClientJSONError
+                 , FCMClientHTTPError
+                 )
+, fcmErrorMessage
+, fcmErrorHttpStatus
+, _FCMErrorResponseInvalidJSON
+, _FCMErrorResponseInvalidAuth
+, _FCMServerError
+, _FCMClientJSONError
+, _FCMClientHTTPError
 , FCMResponseBody(..)
 , FCMMessageResponse
 , _FCMMessageResponse
@@ -84,7 +91,7 @@ import           Data.Default.Class
 import           Data.List.NonEmpty (NonEmpty)
 import           Data.Map (Map)
 import           Data.Text (Text)
-import           Data.Time.Clock
+import           Network.HTTP.Types (Status)
 
 
 type FCMData = Map Text Text
@@ -469,22 +476,56 @@ instance FromJSON FCMResponseBody where
              <|> (FCMTopicResponse <$> parseJSON o)
 
 
-data FCMResponse = FCMResponseOk          { _fcmResponseBody :: !FCMResponseBody
+-- | Types of FCM errors.
+data FCMClientError =
+    -- | Indicates that the request could not be parsed as JSON, or it
+    -- contained invalid fields (for instance, passing a string where a number
+    -- was expected). The exact failure reason is described in the response and
+    -- the problem should be addressed before the request can be retried.
+    FCMErrorResponseInvalidJSON { _fcmErrorMessage :: !Text
+                                }
 
-                                            -- | value of the Retry-After header
-                                            -- could be set if some of the messages exceeded rate
-                                          , _fcmResponseRetryAfter :: !(Maybe UTCTime)
-                                          }
-                 | FCMResponseInvalidJSON { _fcmResponseErrorMessage :: !Text
-                                          }
-                 | FCMResponseInvalidAuth { _fcmResponseErrorMessage :: !Text
-                                          }
-                 | FCMResponseServerError { _fcmResponseErrorMessage :: !Text
-                                            -- | value of the Retry-After header
-                                            -- could be set if topic or some of the messages exceeded rate
-                                          , _fcmResponseRetryAfter :: !(Maybe UTCTime)
-                                          }
-                 deriving (Eq, Show)
+    -- | There was an error authenticating the sender account.
+  | FCMErrorResponseInvalidAuth
 
-$(makeLenses ''FCMResponse)
-$(makePrisms ''FCMResponse)
+    -- | Errors in the 500-599 range (such as 500 or 503) indicate that there
+    -- was an internal error in the FCM connection server while trying to
+    -- process the request, or that the server is temporarily unavailable (for
+    -- example, because of timeouts). Sender must retry later, honoring any
+    -- Retry-After header included in the response. Application servers must
+    -- implement exponential back-off.
+  | FCMServerError              { _fcmErrorHttpStatus :: !Status
+                                , _fcmErrorMessage :: !Text
+                                }
+
+    -- | Client couldn't parse JSON response from server.
+  | FCMClientJSONError          { _fcmErrorMessage :: !Text
+                                }
+
+    -- | Unexpected HTTP response or some other HTTP error.
+  | FCMClientHTTPError          { _fcmErrorMessage :: !Text
+                                }
+  deriving (Show)
+
+$(makeLenses ''FCMClientError)
+$(makePrisms ''FCMClientError)
+
+
+-- | Result of an RPC call.
+--
+-- Successful response doesn't imply all the messages were delivered,
+-- e.g. some may need to be re-sent if a rate limit was exceeded.
+--
+-- Error cases enumerate all, client and server error conditions.
+--
+data FCMResult =
+    -- | Successful response (http 200).
+    -- Doesn't imply all the messages were delivered,
+    -- response body may contain error codes.
+    FCMResultSuccess  !FCMResponseBody
+
+    -- | Didn't receive JSON response, there were an error of some kind.
+  | FCMResultError !FCMClientError
+  deriving (Show)
+
+$(makePrisms ''FCMResult)

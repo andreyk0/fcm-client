@@ -42,18 +42,24 @@ module FCMClient.Types (
 , J.fcmData
 , J.fcmNotification
 , fcmWithNotification
-
-, J.FCMResponse( J.FCMResponseOk
-               , J.FCMResponseInvalidJSON
-               , J.FCMResponseInvalidAuth
-               , J.FCMResponseServerError )
-, J._FCMResponseOk
-, J._FCMResponseInvalidJSON
-, J._FCMResponseInvalidAuth
-, J._FCMResponseServerError
-, J.fcmResponseBody
-, J.fcmResponseErrorMessage
-, J.fcmResponseRetryAfter
+, J.FCMResult ( J.FCMResultSuccess
+              , J.FCMResultError
+              )
+, J._FCMResultSuccess
+, J._FCMResultError
+, J.FCMClientError ( J.FCMErrorResponseInvalidJSON
+                   , J.FCMErrorResponseInvalidAuth
+                   , J.FCMServerError
+                   , J.FCMClientJSONError
+                   , J.FCMClientHTTPError
+                   )
+, J.fcmErrorMessage
+, J.fcmErrorHttpStatus
+, J._FCMErrorResponseInvalidJSON
+, J._FCMErrorResponseInvalidAuth
+, J._FCMServerError
+, J._FCMClientJSONError
+, J._FCMClientHTTPError
 , J.FCMResponseBody(..)
 , J.FCMMessageResponse
 , J._FCMMessageResponse

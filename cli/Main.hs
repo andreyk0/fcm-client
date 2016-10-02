@@ -26,8 +26,6 @@ import           Data.Default.Class
 import           Data.Monoid
 import           FCMClient
 import           FCMClient.Types
-import           Network.HTTP.Client
-import           Network.HTTP.Types
 import           System.IO
 
 
@@ -37,9 +35,10 @@ main = runWithArgs $ \CliArgs{..} -> do
   let sendMessage msgMod = do
         let msg = msgMod def
         putStrLn $ (LUTF8.toString . encode) msg
-        res <- fcmCallJSON (UTF8.fromString cliAuthKey) msg :: IO (Response Object)
-        putStrLn $ show res
-        putStrLn $ (LUTF8.toString . encode) (responseBody res)
+        res <- fcmCallJSON (UTF8.fromString cliAuthKey) msg
+        case res
+          of FCMResultSuccess b -> putStrLn $ (LUTF8.toString . encode) b
+             FCMResultError   e -> putStrLn $ show e
 
       sendMessageBatch CliJsonBatchArgs{..} = do
         let buf c = buffer' cliBatchConc c
@@ -89,30 +88,33 @@ callFCMConduit :: (MonadIO m, MonadResource m)
                -> Conduit (Either (BS.ByteString,String) (Value, FCMMessage)) m (A.Async Value)
 callFCMConduit authKey = CL.mapM $ \input -> liftIO . A.async $
   case input
-    of Left (i,e) -> return $ object [ ("type", "ParserError")
-                                     , ("error", toJSON e)
-                                     , ("input", toJSON (UTF8.toString i))
-                                     ]
-       Right m    -> recovering retPolicy [logRet] (const $ sendMessage m)
+    of Left (i,e)    -> return $ object [ ("type", "ParserError")
+                                        , ("error", toJSON e)
+                                        , ("input", toJSON (UTF8.toString i))
+                                        ]
+       Right (jm, m) -> fmap (resToVal jm) $ retrying retPolicy (const $ shouldRetry) (const $ fcmCallJSON authKey m)
 
   where retPolicy = constantDelay 1000000 <> limitRetries 5
 
-        logRet = logRetries (\ (_ :: HttpException) -> return True)
-                            (\ _ e _ -> liftIO $ hPutStrLn stderr $ "HTTP error: " <> (show e))
+        shouldRetry (FCMResultSuccess _) = return False
 
-        sendMessage :: (Value, FCMMessage) -> IO Value
-        sendMessage (jm,m) = do
-          res <- fcmCallJSON authKey m
+        shouldRetry (FCMResultError e) = do
+          liftIO $ hPutStrLn stderr $ "Client error: " <> (show e)
+          return $ case e
+                     of FCMServerError _ _   -> True
+                        FCMClientHTTPError _ -> True
+                        _                    -> False
 
-          let mkRes t = object [ ("type", t)
-                               , ("message", jm)
-                               , ("response", responseBody res)
-                               ]
 
-          return $ if ( responseStatus res == status200)
-                   then mkRes "Success"
-                   else mkRes "ServerError"
-
+        resToVal :: Value -> FCMResult -> Value
+        resToVal jm fr =
+          let mkRes t r = object [ ("type", t)
+                                 , ("message", jm)
+                                 , ("response", r)
+                                 ]
+           in case fr
+                of FCMResultSuccess b -> mkRes "Success" (toJSON b)
+                   FCMResultError e   -> mkRes "Error" (toJSON . show $ e)
 
 
 runInParallel :: (MonadIO m)
