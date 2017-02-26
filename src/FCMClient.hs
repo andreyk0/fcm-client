@@ -57,5 +57,4 @@ fcmJSONRequest authKey jsonBytes =
                        , (hContentType, "application/json")
                        ]
     , requestBody = RequestBodyLBS jsonBytes
-    , checkStatus = (\ _ _ _  -> Nothing)
     }
