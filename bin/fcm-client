@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# A simple wrapper script around stack-compiled example CLI client
+
+exec stack exec fcm-client -- "$@"

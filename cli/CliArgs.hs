@@ -210,8 +210,8 @@ runWithArgs rwa = do
   maybeAuthKey <- lookupEnv "FCM_AUTH_KEY"
 
   let opts = info (helper <*> parseArgs maybeAuthKey) ( fullDesc
-               <> progDesc "Simple FCM CLI client, send a test message or a JSON batch from a file."
                <> header "Simple FCM CLI client, send a test message or a JSON batch from a file."
+               <> progDesc ("E.g. " <> " fcm-client -k AUTH_KEY message --title Test --to /topics/mytopic --color '#FF0000' -d test")
                )
 
   execParser opts >>= rwa
