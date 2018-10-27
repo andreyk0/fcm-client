@@ -424,12 +424,12 @@ $(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMMessageRe
 instance Default FCMMessageResponse where
   def = FCMMessageResponsePayload 0 0 0 0 Nothing
 
-data FCMTopicResponseOk =
+newtype FCMTopicResponseOk =
   FCMTopicResponseOkPayload {
     -- | Optional, number  The topic message ID when FCM has successfully
     -- received the request and will attempt to deliver to all subscribed
     -- devices.
-    _fcmTopicMessageId :: !Integer
+    _fcmTopicMessageId :: Integer
   } deriving (Eq, Show)
 
 $(makeLenses ''FCMTopicResponseOk )

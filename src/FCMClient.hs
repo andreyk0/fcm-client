@@ -14,7 +14,6 @@ import           Control.Exception
 import qualified Data.Aeson as J
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
-import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           FCMClient.Types
@@ -27,7 +26,7 @@ import           Network.HTTP.Types
 --   https://firebase.google.com/docs/cloud-messaging/http-server-ref#send-downstream
 fcmCallJSON :: (J.ToJSON req)
             => B.ByteString -- ^ authorization key
-            -> req -- ^ FCM JSON message, a typed model or a document object
+            -> req -- ^ FCM JSON message, a typed model or a document object, see 'FCMClient.Types'
             -> IO FCMResult
 fcmCallJSON authKey fcmMessage =
   handle (\ (he :: HttpException) -> return $ FCMResultError . FCMClientHTTPError . T.pack . show $ he) $ do
@@ -38,14 +37,14 @@ fcmCallJSON authKey fcmMessage =
                                               of Left e  -> FCMResultError $ FCMClientJSONError (T.pack e)
                                                  Right b -> FCMResultSuccess b
                         | rs == status400 = FCMResultError $ FCMErrorResponseInvalidJSON (textBody rb)
-                        | rs == status401 = FCMResultError $ FCMErrorResponseInvalidAuth
+                        | rs == status401 = FCMResultError FCMErrorResponseInvalidAuth
                         | statusIsServerError rs = FCMResultError $ FCMServerError rs (textBody rb)
-                        | otherwise              = FCMResultError $ FCMClientHTTPError $ "Unexpected response [" <> (T.pack . show $ rs) <> "]: " <> (textBody rb)
+                        | otherwise              = FCMResultError $ FCMClientHTTPError $ "Unexpected response [" <> (T.pack . show) rs <> "]: " <> textBody rb
 
-        textBody b = (T.decodeUtf8 . L.toStrict) b
+        textBody = T.decodeUtf8 . L.toStrict
 
 
--- | Constructs an FCM JSON request, body and additional parameters such as
+-- | Constructs an authenticated FCM JSON request, body and additional parameters such as
 --   proxy or http manager can be set for a customized HTTP call.
 fcmJSONRequest :: B.ByteString -- ^ authorization key
                -> L.ByteString -- ^ JSON POST data

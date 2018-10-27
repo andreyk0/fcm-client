@@ -13,7 +13,6 @@ import Control.Retry
 import Data.Aeson
 import Data.Conduit
 import Data.Conduit.Async
-import Data.Default.Class
 import FCMClient
 import FCMClient.Types
 import System.IO
@@ -26,16 +25,19 @@ import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.Conduit.Binary as CB
 import qualified Data.Conduit.List as CL
 
+
+-- | Example of sending an individual notification
+--   or a batch of pre-formatted JSON notifications
+--   See CliArgs.hs for an example of payload construction with lenses
 main :: IO ()
 main = runWithArgs $ \CliArgs{..} -> do
 
-  let sendMessage msgMod = do
-        let msg = msgMod def
+  let sendMessage msg = do
         putStrLn $ (LUTF8.toString . encode) msg
         res <- fcmCallJSON (UTF8.fromString cliAuthKey) msg
         case res
           of FCMResultSuccess b -> putStrLn $ (LUTF8.toString . encode) b
-             FCMResultError   e -> putStrLn $ show e
+             FCMResultError   e -> print e
 
       sendMessageBatch CliJsonBatchArgs{..} = do
         let buf c = buffer' cliBatchConc c
@@ -48,7 +50,7 @@ main = runWithArgs $ \CliArgs{..} -> do
 
 
   case cliCmd
-    of CliCmdSendMessage msgMod  -> sendMessage msgMod
+    of CliCmdSendMessage msg  -> sendMessage msg
        CliCmdSendJsonBatch bargs -> runResourceT $ runCConduit $ sendMessageBatch bargs
 
 
@@ -60,7 +62,7 @@ main = runWithArgs $ \CliArgs{..} -> do
 -- an FCM request but original input will be propagated to the output, this allows for addition
 -- of request tracking/debugging fields that makes it easier to interpret results.
 parseInputConduit :: (MonadIO m)
-                  => Conduit BS.ByteString m (Either (BS.ByteString, String) (Value, FCMMessage))
+                  => ConduitT BS.ByteString (Either (BS.ByteString, String) (Value, FCMMessage)) m ()
 parseInputConduit = CB.lines .| CL.map (\line -> do
   jObj <- case eitherDecode' $ LBS.fromStrict line
             of Right v -> Right v
@@ -72,31 +74,30 @@ parseInputConduit = CB.lines .| CL.map (\line -> do
 
 
 encodeOutputConduit :: (MonadIO m)
-                    => Conduit Value m BS.ByteString
+                    => ConduitT Value BS.ByteString m ()
 encodeOutputConduit =
   CL.map (LBS.toStrict . encode)
-    =$= ( awaitForever $ \l -> do yield l
-                                  yield "\n" )
+    .| awaitForever (\l -> yield l >> yield "\n")
 
 
 -- | Convert each input line into a JSON object containing original input and results of the call.
 callFCMConduit :: (MonadIO m, MonadResource m)
                => BS.ByteString -- ^ authorization key
-               -> Conduit (Either (BS.ByteString,String) (Value, FCMMessage)) m (A.Async Value)
+               -> ConduitT (Either (BS.ByteString,String) (Value, FCMMessage)) (A.Async Value) m ()
 callFCMConduit authKey = CL.mapM $ \input -> liftIO . A.async $
   case input
     of Left (i,e)    -> return $ object [ ("type", "ParserError")
                                         , ("error", toJSON e)
                                         , ("input", toJSON (UTF8.toString i))
                                         ]
-       Right (jm, m) -> fmap (resToVal jm) $ retrying retPolicy (const $ shouldRetry) (const $ fcmCallJSON authKey m)
+       Right (jm, m) -> resToVal jm <$> retrying retPolicy (const shouldRetry) (const $ fcmCallJSON authKey m)
 
   where retPolicy = constantDelay 1000000 <> limitRetries 5
 
         shouldRetry (FCMResultSuccess _) = return False
 
         shouldRetry (FCMResultError e) = do
-          liftIO $ hPutStrLn stderr $ "Client error: " <> (show e)
+          liftIO $ hPutStrLn stderr $ "Client error: " <> show e
           return $ case e
                      of FCMServerError _ _   -> True
                         FCMClientHTTPError _ -> True
@@ -116,10 +117,10 @@ callFCMConduit authKey = CL.mapM $ \input -> liftIO . A.async $
 
 runInParallel :: (MonadIO m)
               => Int -- ^ level
-              -> Conduit (A.Async a) m a
+              -> ConduitT (A.Async a) a m ()
 runInParallel n = parC []
   where parC !xs = do
-          let moreCnt = n - (length xs)
+          let moreCnt = n - length xs
           moreXs <- CL.take moreCnt
           let xs' = xs ++ moreXs
           if null xs'
@@ -129,10 +130,9 @@ runInParallel n = parC []
                   parC $ filter (/= a) xs'
 
 
-
 batchInputConduit :: (MonadResource m)
                   => Maybe FilePath
-                  -> Producer m BS.ByteString
+                  -> ConduitT () BS.ByteString m ()
 batchInputConduit (Just fp) = CB.sourceFile fp
 batchInputConduit Nothing = do
   liftIO $ do hSetBinaryMode stdin True
@@ -142,7 +142,7 @@ batchInputConduit Nothing = do
 
 batchOutputConduit :: (MonadResource m)
                   => Maybe FilePath
-                  -> Consumer BS.ByteString m ()
+                  -> ConduitT BS.ByteString Void m ()
 batchOutputConduit (Just fp) = CB.sinkFile fp
 batchOutputConduit Nothing = do
   liftIO $ do hSetBinaryMode stdout True

@@ -1,16 +1,21 @@
 build:
-		stack build fcm-client
+	stack build fcm-client
+	find cli test src -type f -name '*.hs' | xargs hlint
 
 test:
-		stack test fcm-client
+	stack test fcm-client
 
 clean:
-		stack clean
+	stack clean
 
 ghci:
-		stack ghci
+	stack ghci
 
-tags:
-		hasktags-generate .
+hoogle:
+	stack hoogle
 
-.PHONY: build test clean ghci tags
+.PHONY: \
+	build \
+	clean \
+	ghci \
+	test

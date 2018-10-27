@@ -1,8 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable         #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
 
 
 -- | Google Firebase Cloud Messaging model / JSON conversions.
@@ -11,81 +7,30 @@
 --   This module re-exports JSON types with a few convenience wrappers
 --   around selected fields.
 --
+--   Models are constructed with lenses, starting with a default value, e.g:
+--   >>> encode (def & fcmBody ?~ "fcm body")
+--       "{\"body\":\"fcm body\"}"
+--
 module FCMClient.Types (
-  J.FCMData
-, FCMPriority(..)
+  module Control.Lens
+, module Data.Aeson
+, module Data.Default.Class
+, module Data.Scientific
+, module FCMClient.JSON.Types
 , FCMLocValue(..)
-, J.FCMNotification
-, J.fcmTitle
-, J.fcmBody
-, J.fcmIcon
-, J.fcmSound
-, J.fcmTag
-, J.fcmColor
-, J.fcmBadge
-, J.fcmClickAction
-, J.fcmBodyLocKey
+, FCMPriority(..)
 , fcmBodyLocArgs
-, J.fcmTitleLocKey
-, fcmTitleLocArgs
-, J.FCMMessage
-, J.fcmTo
-, J.fcmRegistrationIDs
-, J.fcmCondition
-, J.fcmCollapseKey
-, fcmPriority
 , fcmContentAvailable
 , fcmDelayWhileIdle
-, J.fcmTimeToLive
-, J.fcmRestrictedPackageName
 , fcmDryRun
-, J.fcmData
-, J.fcmNotification
+, fcmPriority
+, fcmTitleLocArgs
 , fcmWithNotification
-, J.FCMResult ( J.FCMResultSuccess
-              , J.FCMResultError
-              )
-, J._FCMResultSuccess
-, J._FCMResultError
-, J.FCMClientError ( J.FCMErrorResponseInvalidJSON
-                   , J.FCMErrorResponseInvalidAuth
-                   , J.FCMServerError
-                   , J.FCMClientJSONError
-                   , J.FCMClientHTTPError
-                   )
-, J.fcmErrorMessage
-, J.fcmErrorHttpStatus
-, J._FCMErrorResponseInvalidJSON
-, J._FCMErrorResponseInvalidAuth
-, J._FCMServerError
-, J._FCMClientJSONError
-, J._FCMClientHTTPError
-, J.FCMResponseBody(..)
-, J.FCMMessageResponse
-, J._FCMMessageResponse
-, J._FCMTopicResponse
-, J.fcmCanonicalIds
-, J.fcmFailure
-, J.fcmMulticastId
-, J.fcmResults
-, J.fcmSuccess
-, J.FCMMessageResponseResult(..)
-, J._FCMMessageResponseResultOk
-, J._FCMMessageResponseResultError
-, J.FCMMessageResponseResultOk
-, J.fcmMessageId
-, J.fcmRegistrationId
-, J.FCMTopicResponse(..)
-, J.FCMTopicResponseOk
-, J._FCMTopicResponseOk
-, J._FCMTopicResponseError
-, J.fcmTopicMessageId
-, J.FCMError(..)
 ) where
 
 
 import           Control.Lens
-import           Data.Aeson
+import           Data.Aeson (encode, decode)
 import           Data.Aeson.Types as J
 import           Data.Default.Class
 import           Data.List.NonEmpty (nonEmpty)
@@ -96,9 +41,14 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as TE
+import           FCMClient.JSON.Types hiding ( fcmBodyLocArgs
+                                             , fcmContentAvailable
+                                             , fcmDelayWhileIdle
+                                             , fcmDryRun
+                                             , fcmPriority
+                                             , fcmTitleLocArgs
+                                             )
 import qualified FCMClient.JSON.Types as J
-
-
 
 
 data FCMPriority = FCMPriorityNormal
@@ -137,8 +87,11 @@ aesonTxtPr :: (Applicative f, Choice p, ToJSON a1, FromJSON a)
            => p [a] (f [a1])
            -> p (Maybe Text) (f (Maybe Text))
 aesonTxtPr =
-  (prism' (fmap (LT.toStrict . TE.decodeUtf8)) (Just . (fmap (TE.encodeUtf8 . LT.fromStrict)))) .
-    (prism' (fmap (encode) . nonEmpty)  (Just . fromMaybe [] . decode . fromMaybe ""))
+  prism' (fmap (LT.toStrict . TE.decodeUtf8))
+         (Just . fmap (TE.encodeUtf8 . LT.fromStrict))
+  .
+  prism' (fmap encode . nonEmpty)
+         (Just . fromMaybe [] . decode . fromMaybe "")
 
 
 -- | Typed lens focused on localized notification body arguments.
@@ -161,7 +114,7 @@ fcmTitleLocArgs = J.fcmTitleLocArgs . aesonTxtPr
 fcmPriority :: (Applicative f)
             => (FCMPriority -> f FCMPriority)
             -> J.FCMMessage -> f J.FCMMessage
-fcmPriority = J.fcmPriority . (prism' fcmPriorityToText (Just .textToFcmPriority))
+fcmPriority = J.fcmPriority . prism' fcmPriorityToText (Just .textToFcmPriority)
   where fcmPriorityToText FCMPriorityNormal = Nothing
         fcmPriorityToText FCMPriorityHigh   = Just "high"
         textToFcmPriority (Just "high")     = FCMPriorityHigh
@@ -171,7 +124,7 @@ fcmPriority = J.fcmPriority . (prism' fcmPriorityToText (Just .textToFcmPriority
 
 maybeBoolPr :: (Applicative f)
             => (Bool -> f Bool)
-            -> (Maybe Bool) -> f (Maybe Bool)
+            -> Maybe Bool -> f (Maybe Bool)
 maybeBoolPr = prism' (\x -> if x then Just x else Nothing) (Just . fromMaybe False)
 
 

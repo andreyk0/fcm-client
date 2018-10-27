@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 module CliArgs
        ( CliArgs (..)
        , CliCmd (..)
@@ -8,6 +6,7 @@ module CliArgs
        ) where
 
 import Control.Lens
+import Data.Default.Class
 import Data.List.NonEmpty (nonEmpty)
 import FCMClient.Types
 import Options.Applicative
@@ -22,13 +21,13 @@ data CliArgs = CliArgs { cliAuthKey :: String
                        , cliCmd     :: CliCmd
                        }
 
-data CliJsonBatchArgs = CliJsonBatchArgs { cliBatchInput  :: (Maybe FilePath)
-                                         , cliBatchOutput :: (Maybe FilePath)
+data CliJsonBatchArgs = CliJsonBatchArgs { cliBatchInput  :: Maybe FilePath
+                                         , cliBatchOutput :: Maybe FilePath
                                          , cliBatchConc   :: Int
                                          }
 
 data CliCmd = CliCmdSendJsonBatch CliJsonBatchArgs
-            | CliCmdSendMessage (FCMMessage -> FCMMessage)
+            | CliCmdSendMessage FCMMessage
 
 
 parseArgs :: Maybe String -- ^ default auth key from shell env
@@ -52,24 +51,24 @@ parseArgs maybeAuthKey = CliArgs
 
 parseCliJsonBatchArgs :: Parser CliJsonBatchArgs
 parseCliJsonBatchArgs = CliJsonBatchArgs
-  <$> (optional $ strOption
+  <$> optional ( strOption
         ( long "input"
        <> short 'i'
        <> help "Batch input file, one JSON object per line (or STDIN)."))
-  <*> (optional $ strOption
+  <*> optional ( strOption
         ( long "output"
        <> short 'o'
        <> help "Batch input file (or STDOUT)."))
-  <*> (option (auto >>= (\c -> if (c < 1) then error "Concurrency must be >= 1" else return c))
+  <*> option (auto >>= (\c -> if c < 1 then error "Concurrency must be >= 1" else return c))
         ( long "concurrency"
        <> short 'c'
        <> value 1
        <> showDefaultWith show
-       <> help "How many HTTP requests to run in concurrently."))
+       <> help "How many HTTP requests to run in concurrently.")
 
 
 parseCliCmdSendMessage :: Parser CliCmd
-parseCliCmdSendMessage = CliCmdSendMessage
+parseCliCmdSendMessage = CliCmdSendMessage . def
   <$> (  ( fmap (set fcmTo)
                 (optionalText
                   ( long "to"
@@ -87,46 +86,46 @@ parseCliCmdSendMessage = CliCmdSendMessage
                  <> help "The message target. Supported condition: Topic, formatted as \"'yourTopic' in topics\". This value is case-insensitive.  Supported operators: &&, ||. Maximum two operators per topic message supported."))
          )
 
-      <..> fmap (set $ fcmCollapseKey)
+      <..> fmap (set fcmCollapseKey)
                 (optionalText
                   ( long "collapse-key"
                  <> help "Identifies a group of messages that can be collapsed, so that only the last message gets sent when delivery can be resumed."))
 
-      <..> fmap (set $ J.fcmPriority)
+      <..> fmap (set J.fcmPriority)
                 (optionalText
                   ( long "priority"
                  <> help "Sets the priority of the message. Valid values are 'normal' and 'high'. On iOS, these correspond to APNs priorities 5 and 10."))
 
-      <..> fmap (set $ fcmContentAvailable)
+      <..> fmap (set fcmContentAvailable)
                 (switch
                   ( long "content-available"
                  <> help "On iOS, use this field to represent content-available in the APNS payload. When a notification or message is sent and this is set to true, an inactive client app is awoken. On Android, data messages wake the app by default. On Chrome, currently not supported."))
 
-      <..> fmap (set $ fcmDelayWhileIdle)
+      <..> fmap (set fcmDelayWhileIdle)
                 (switch
                   ( long "delay-while-idle"
                  <> help "When this parameter is set to true, it indicates that the message should not be sent until the device becomes active. The default value is false."))
 
-      <..> fmap (set $ fcmTimeToLive)
+      <..> fmap (set fcmTimeToLive)
                 (optional $ option auto
                   ( long "time-to-live"
                  <> help "This parameter specifies how long (in seconds) the message should be kept in FCM storage if the device is offline. The maximum time to live supported is 4 weeks, and the default value is 4 weeks. For more information, see Setting the lifespan of a message."))
 
-      <..> fmap (set $ fcmRestrictedPackageName)
+      <..> fmap (set fcmRestrictedPackageName)
                 (optionalText
                   ( long "restricted-package-name"
                  <> help "This parameter specifies the package name of the application where the registration tokens must match in order to receive the message."))
 
-      <..> fmap (set $ fcmDryRun)
+      <..> fmap (set fcmDryRun)
                 (switch
                   ( long "dry-run"
                  <> help "This parameter, when set to true, allows developers to test a request without actually sending a message. The default value is false."))
 
-      <..> fmap (set $ fcmData)
-                (fmap (J.decode . LB.pack) (strOption
+      <..> fmap (set fcmData . J.decode . LB.pack)
+                (strOption
                   ( long "data"
                  <> short 'd'
-                 <> help "This parameter specifies the custom key-value pairs of the message's payload.  For example, with data:{\"score\":\"3x1\"}: On iOS, if the message is sent via APNS, it represents the custom data fields. If it is sent via FCM connection server, it would be represented as key value dictionary in AppDelegate application:didReceiveRemoteNotification:.  On Android, this would result in an intent extra named score with the string value 3x1.  The key should not be a reserved word (\"from\" or any word starting with \"google\" or \"gcm\"). Do not use any of the words defined in this table (such as collapse_key). ONLY values in string types are supported. You have to convert values in objects or other non-string data types (e.g., integers or booleans) to string.")))
+                 <> help "This parameter specifies the custom key-value pairs of the message's payload.  For example, with data:{\"score\":\"3x1\"}: On iOS, if the message is sent via APNS, it represents the custom data fields. If it is sent via FCM connection server, it would be represented as key value dictionary in AppDelegate application:didReceiveRemoteNotification:.  On Android, this would result in an intent extra named score with the string value 3x1.  The key should not be a reserved word (\"from\" or any word starting with \"google\" or \"gcm\"). Do not use any of the words defined in this table (such as collapse_key). ONLY values in string types are supported. You have to convert values in objects or other non-string data types (e.g., integers or booleans) to string."))
 
       <..> fmap (set $ fcmWithNotification . fcmTitle)
                 (optionalText
@@ -192,7 +191,7 @@ parseCliCmdSendMessage = CliCmdSendMessage
       )
 
   where optionalText opt = fmap (fmap T.pack) $ optional $ strOption opt
-        textList opt = fmap nonEmpty $ many $ fmap T.pack $ strOption opt
+        textList opt = fmap nonEmpty $ many $ T.pack <$> strOption opt
 
 
 -- | Chains functions through Applicative
