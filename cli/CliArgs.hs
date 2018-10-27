@@ -68,8 +68,9 @@ parseCliJsonBatchArgs = CliJsonBatchArgs
 
 
 parseCliCmdSendMessage :: Parser CliCmd
-parseCliCmdSendMessage = CliCmdSendMessage . def
-  <$> (  ( fmap (set fcmTo)
+parseCliCmdSendMessage = CliCmdSendMessage <$>
+    (
+        ( fmap (set fcmTo)
                 (optionalText
                   ( long "to"
                  <> short 't'
@@ -188,7 +189,8 @@ parseCliCmdSendMessage = CliCmdSendMessage . def
                 (optionalText
                   ( long "title-loc-args"
                  <> help "IOS: Indicates the string value to replace format specifiers in the title string for localization.Corresponds to \"title-loc-args\" in the APNs payload.  Android: Indicates the string value to replace format specifiers in the title string for localization. For more information, see Formatting strings."))
-      )
+       <*> pure def
+    )
 
   where optionalText opt = fmap (fmap T.pack) $ optional $ strOption opt
         textList opt = fmap nonEmpty $ many $ T.pack <$> strOption opt

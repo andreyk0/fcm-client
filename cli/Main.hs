@@ -48,9 +48,8 @@ main = runWithArgs $ \CliArgs{..} -> do
           `buf`
           (encodeOutputConduit .| batchOutputConduit cliBatchOutput)
 
-
   case cliCmd
-    of CliCmdSendMessage msg  -> sendMessage msg
+    of CliCmdSendMessage msg     -> sendMessage msg
        CliCmdSendJsonBatch bargs -> runResourceT $ runCConduit $ sendMessageBatch bargs
 
 
